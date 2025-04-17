@@ -6,13 +6,8 @@
 
 
 #include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 #include <sys/iofunc.h>
 #include <sys/dispatch.h>
-#include <sys/neutrino.h>
 #include <sys/resmgr.h>
 
 #include "resm_iface.h"
@@ -78,6 +73,10 @@ int main (int argc, char **argv)
     i2c_master_getfuncs(&masterf, sizeof(masterf));
     masterf.version_info(&version);
     printf("%s driver version %d.%d.%d\n", progname, version.major, version.minor, version.revision);
+
+    hdl = masterf.init(argc, argv);
+
+    if (hdl == NULL) printf ("%s init func fail...\n", progname);
 
     /* end of i2c init part */
 
