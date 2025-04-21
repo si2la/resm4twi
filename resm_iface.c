@@ -1,6 +1,6 @@
 #include "resm_iface.h"
 
-_uint8 verbose = 0;
+uint8_t verbose = 0;
 
 int twi_version_info(i2c_libversion_t *version)
 {
