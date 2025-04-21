@@ -9,6 +9,8 @@
 
 #include <hw/i2c.h>
 
+int optv;
+
 typedef struct _twi_dev
 {
     unsigned int    speed;

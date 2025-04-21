@@ -48,6 +48,7 @@ twi_init(int argc, char *argv[])
 
             case 'v':
                 verbose = 1;
+                optv = 1;
                 break;
 
             default:
@@ -56,6 +57,13 @@ twi_init(int argc, char *argv[])
     }
 
     if (dev->slave_addr == 0) goto fail_free_dev;
+
+    if( verbose )
+    {
+        fprintf(stdout, "slave_addr = %d\n", dev->slave_addr);
+        fprintf(stdout, "speed = %d\n", dev->speed);
+        fflush;
+    }
 
     return dev;
 

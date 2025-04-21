@@ -54,7 +54,7 @@ dispatch_context_t      *ctp;
 iofunc_attr_t           ioattr;
 
 char    *progname = "TWI";
-int     optv;                               // if -v opt used - verbose all operation
+extern int optv;                               // if -v opt used - verbose all operation
 
 
 int main (int argc, char **argv)
@@ -72,16 +72,21 @@ int main (int argc, char **argv)
 
     i2c_master_getfuncs(&masterf, sizeof(masterf));
     masterf.version_info(&version);
-    printf("%s driver version %d.%d.%d\n", progname, version.major, version.minor, version.revision);
+    printf("%s resmanager, version %d.%d.%d\n", progname, version.major, version.minor, version.revision);
 
     hdl = masterf.init(argc, argv);
 
-    if (hdl == NULL) printf ("%s init func fail...\n", progname);
+    if (hdl == NULL)
+    {
+        printf ("%s init func fail...\n", progname);
+
+        status = I2C_STATUS_ERROR;
+    }
 
     /* end of i2c init part */
 
-    /* Check for command line options (-v) */
-    options (argc, argv);
+    /* Check for command line options (-v only) */
+    //options (argc, argv);
 
     /* Allocate and initialize a dispatch structure for use         Выделите и инициализируйте структуру диспетчеризации для исп.
      * by our main loop. This is for the resource manager           нашим основным циклом.  Это нужно для использования фреймворка
@@ -350,6 +355,7 @@ options (int argc, char **argv)
             switch (opt) {
             case 'v':
                 optv = 1;
+                printf("optv = %d", optv);
                 break;
             }
         }
