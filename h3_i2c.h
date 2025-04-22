@@ -8,6 +8,31 @@
 #define MEGABYTE				0x100000
 #define H3_F_24M				24000000
 
+
+#define H3_CCU_BASE             0x01C20000
+// BUS_CLK_GATING_REG3:
+// TWI0_GATING bit 0 - 1:Pass
+// TWI1_GATING bit 1 - 1:Pass
+// TWI2_GATING bit 2 - 1:Pass
+#define H3_BUS_CLK_GATING_REG3  0x6C
+// TWI0_RST bit 0    - 1:De-assert
+#define H3_BUS_SOFT_RST_REG4    0x02D8
+
+#define H3_PIO_BASE				0x01C20800
+// PA_CFG1_REG:
+// PA12_SELECT bits 18-16 - 010:TWI0_SDA
+// PA11_SELECT bits 14-12 - 010:TWI0_SCK
+#define H3_PA_CFG1_REG          0x04
+// PA_CFG2_REG:
+// PA19_SELECT bits 14:12 - 011:TWI1_SDA
+// PA18_SELECT bits 10:8  - 011:TWI1_SCK
+#define H3_PA_CFG2_REG          0x08
+// PE_CFG1_REG:
+// PE13_SELECT bits 22:20 - 011:TWI2_SDA
+// PE12_SELECT bits 18:16 - 011:TWI2_SCK
+#define H3_PE_CFG1_REG          0x94
+
+
 #define H3_TWI_BASE				0x01C2AC00
 
 #define     __I		volatile		///< defines 'read only' permissions
@@ -56,6 +81,8 @@ typedef enum I2C_MODE {
     I2C_MODE_READ
 } i2c_mode_t;
 
+/* Allwinner_H3_Datasheet_V1.2.pdf */
+
 #define STAT_BUS_ERROR			0x00		///< Bus error
 #define STAT_START_TRANSMIT     0x08		///< START condition transmitted
 #define STAT_RESTART_TRANSMIT   0x10		///< Repeated START condition transmitted
@@ -88,6 +115,8 @@ typedef enum I2C_MODE {
 
 #define TIMEOUT			0xffff
 
+int write_reg (unsigned long long, uint32_t);
+uint32_t read_reg(unsigned long long);
 void h3_i2c_set_baudrate(const uint32_t nBaudrate);
 void h3_i2c_set_slave_address(const uint8_t nAddress);
 uint8_t h3_i2c_read(char *, uint32_t, uint8_t);

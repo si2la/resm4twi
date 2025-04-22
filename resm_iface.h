@@ -12,12 +12,13 @@
 #include "h3_i2c.h"
 
 
-int optv;
+int optv;       // global option -v (verbose)
 
 typedef struct _twi_dev
 {
     unsigned int    speed;
     unsigned int    slave_addr;
+    uint8_t         twi_num;
     uint8_t         *buf;
 } twi_dev_t;
 
