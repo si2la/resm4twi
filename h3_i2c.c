@@ -10,6 +10,9 @@
 
 #define SPTR_CAST(x)     (uintptr_t)&(x)
 
+static uint8_t s_slave_address = 0;
+static uint32_t s_current_baudrate = 0;
+
 uint32_t read_reg(unsigned long long  port)
 {
     uintptr_t base;
@@ -83,4 +86,17 @@ static void _set_clock(const uint32_t clk_in, const uint32_t sclk_req) {
     _cc_write_reg(clk_n, clk_m);
 
     return;
+}
+
+void h3_i2c_set_baudrate(const uint32_t nBaudrate) {
+    assert(nBaudrate <= H3_I2C_FULL_SPEED);
+
+    if (__builtin_expect((s_current_baudrate != nBaudrate), 0)) {
+        s_current_baudrate = nBaudrate;
+        _set_clock(H3_F_24M, nBaudrate);
+    }
+}
+
+void h3_i2c_set_slave_address(const uint8_t nAddress) {
+    s_slave_address = nAddress;
 }

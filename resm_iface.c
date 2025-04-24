@@ -19,7 +19,7 @@ twi_init(int argc, char *argv[])
     twi_dev_t   *dev;
     int option;
 
-    // is IO operations allow
+    // is IO operations allow?
     if ( ThreadCtl( _NTO_TCTL_IO, 0 ) == -1 )
     {
         fprintf(stderr, "You must be root!" );
@@ -97,17 +97,20 @@ twi_init(int argc, char *argv[])
             cfg_reg_val |=  ( 0x01 << 17 );
             // 18 bit down
             cfg_reg_val &= ~( 0x01 << 18 );
-            write_reg(H3_PIO_BASE + H3_PA_CFG1_REG, cfg_reg_val);
+
+            if (write_reg(H3_PIO_BASE + H3_PA_CFG1_REG, cfg_reg_val)) goto fail_free_dev;
 
             // now set TWI0 gating
             cfg_reg_val = read_reg(H3_CCU_BASE + H3_BUS_CLK_GATING_REG3);
             cfg_reg_val |= 0x01;
-            write_reg(H3_CCU_BASE + H3_BUS_CLK_GATING_REG3, cfg_reg_val);
 
-            // and Bus soft reset
+            if (write_reg(H3_CCU_BASE + H3_BUS_CLK_GATING_REG3, cfg_reg_val)) goto fail_free_dev;
+
+            // and Bus soft reset TWI0
             cfg_reg_val = read_reg(H3_CCU_BASE + H3_BUS_SOFT_RST_REG4);
             cfg_reg_val |= 0x01;
-            write_reg(H3_CCU_BASE + H3_BUS_SOFT_RST_REG4, cfg_reg_val);
+
+            if (write_reg(H3_CCU_BASE + H3_BUS_SOFT_RST_REG4, cfg_reg_val)) goto fail_free_dev;
 
             break;
 
@@ -120,6 +123,9 @@ twi_init(int argc, char *argv[])
         default:
             break;
     }
+
+    h3_i2c_set_baudrate(dev->speed);
+    h3_i2c_set_slave_address(dev->slave_addr);
 
     return dev;
 
