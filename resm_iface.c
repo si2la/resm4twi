@@ -1,7 +1,7 @@
 #include "resm_iface.h"
 
 uint8_t verbose = 0;
-// number of interface: twi0, twi1 etc.
+// number of interface: twi0, twi1, twi2
 uint8_t twi_num = 0;
 
 int twi_version_info(i2c_libversion_t *version)
@@ -135,12 +135,42 @@ fail_free_dev:
 }
 
 int
+twi_ctl(void *hdl, int cmd, void *msg, int msglen,
+             int *nbytes, int *info)
+{
+    twi_dev_t   *dev = hdl;
+    int ret;
+
+//    printf("slave_addr = %d\n", dev->slave_addr);
+//    printf("speed = %d\n", dev->speed);
+//    printf("dev_num = %d\n", dev->twi_num);
+
+    // TODO - may be add buffer to dev structure?
+
+    // now send request (register 0xE3 or 0xE5)
+    uint8_t * buffer = msg;
+
+    printf("\n Quering 0x%0X register...\n", cmd);
+    if ( h3_i2c_read(buffer, 3, cmd) )
+    {
+        printf("Error occured\n");
+        return I2C_STATUS_ERROR;
+    }
+
+    ret = I2C_STATUS_DONE;
+
+    return ret;
+}
+
+int
 i2c_master_getfuncs(i2c_master_funcs_t *funcs, int tabsize)
 {
     I2C_ADD_FUNC(i2c_master_funcs_t, funcs,
             version_info, twi_version_info, tabsize);
     I2C_ADD_FUNC(i2c_master_funcs_t, funcs,
             init, twi_init, tabsize);
+    I2C_ADD_FUNC(i2c_master_funcs_t, funcs,
+            ctl, twi_ctl, tabsize);
 
     return 0;
 }

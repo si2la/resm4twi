@@ -57,6 +57,12 @@ char    *progname = "TWI";
 extern int optv;                               // if -v opt used - verbose all operation
 
 
+// i2c (twi) part
+i2c_master_funcs_t  masterf;
+i2c_status_t        status;
+// handle returned masterf
+void *hdl;
+
 int main (int argc, char **argv)
 {
     int pathID;
@@ -65,10 +71,7 @@ int main (int argc, char **argv)
 
     /* i2c init part */
 
-    i2c_master_funcs_t  masterf;
     i2c_libversion_t    version;
-    i2c_status_t        status;
-    void *hdl;
 
     i2c_master_getfuncs(&masterf, sizeof(masterf));
     masterf.version_info(&version);
@@ -81,12 +84,15 @@ int main (int argc, char **argv)
         printf ("%s init func fail...\n", progname);
 
         status = I2C_STATUS_ERROR;
+
+        return status;
     }
+
 
     /* end of i2c init part */
 
     /* Check for command line options (-v only) */
-    //options (argc, argv);
+    //options (argc, argv);     // old place of options handler
 
     /* Allocate and initialize a dispatch structure for use         Выделите и инициализируйте структуру диспетчеризации для исп.
      * by our main loop. This is for the resource manager           нашим основным циклом.  Это нужно для использования фреймворка
@@ -315,6 +321,15 @@ io_write (resmgr_context_t *ctp, io_write_t *msg, RESMGR_OCB_T *ocb)
         printf("%s", buf );
         free(buf);
     }
+
+    /* work TWI here */
+    uint8_t * twi_msgbuf;
+    uint * twi_info;
+    twi_msgbuf = malloc(sizeof(uint8_t)*3);
+    uint twi_nbytes;
+
+    //masterf.ctl(hdl, 0xE3, twi_msgbuf, 3, &twi_nbytes, twi_info);
+    masterf.ctl(hdl, atoh(buf), twi_msgbuf, 3, &twi_nbytes, twi_info);
 
     /* Finally, if we received more than 0 bytes, we mark the       Наконец, если мы получили более 0 байт, мы помечаем
     * file information for the device to be updated:                какая информация в файле устройства будет изменена:
