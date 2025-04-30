@@ -1,4 +1,4 @@
-/* H 3   T W I   R E S O U R C E   M A N A G E R S   */
+  /* H 3    T W I    R E S O U R C E    M A N A G E R S   */
 
 /* This is a Resource Manager TWI (I2C) for QNX Neutrino (KPDA)
  *                  Orange Pi One Board
@@ -54,14 +54,16 @@ dispatch_context_t      *ctp;
 iofunc_attr_t           ioattr;
 
 char    *progname = "TWI";
+char    *buffer = "HTU21D driver\n";
 extern int optv;                               // if -v opt used - verbose all operation
 
 
-// i2c (twi) part
+// *** i2c (twi) part /global/ ***
 i2c_master_funcs_t  masterf;
 i2c_status_t        status;
 // handle returned masterf
 void *hdl;
+// *** i2c (twi) part ***
 
 int main (int argc, char **argv)
 {
@@ -115,6 +117,10 @@ int main (int argc, char **argv)
      * For now, we'll just use defaults by setting the              На данный момент мы просто будем использовать значения по умолчанию,
      * attribute structure to zeroes.                               установив в структуре атрибутов значения, равные нулю.*/
     memset (&rattr, 0, sizeof (rattr));
+    // set number of message fragments (iov's) that are
+    // possible for the reply ??? TODO: check!
+    rattr.nparts_max = 1;
+    rattr.msg_max_size = 2048;
 
     /* Now, let's intialize the tables of connect functions and     Теперь давайте инициализируем таблицы функций подключения
      * I/O functions to their defaults (system fallback             и функций ввода-вывода к их значениям по умолчанию (системные резервные
@@ -132,6 +138,8 @@ int main (int argc, char **argv)
      * device name we are going to register. It consists of         имени устройства, которое мы собираемся зарегистрировать.
      * permissions, type of device, owner and group ID */
     iofunc_attr_init (&ioattr, S_IFCHR | 0666, NULL, NULL);
+    // TODO: check!
+    ioattr.nbytes = strlen(buffer) + 1;
 
     /* Next we call resmgr_attach() to register our device name     Затем мы вызываем resmgr_attach(), чтобы зарегистрировать имя нашего
      * with the process manager, and also to let it know about      устройства в диспетчере процессов, а также сообщить ему о
@@ -207,6 +215,9 @@ io_open (resmgr_context_t *ctp, io_open_t *msg, RESMGR_HANDLE_T *handle, void *e
 int
 io_read (resmgr_context_t *ctp, io_read_t *msg, RESMGR_OCB_T *ocb)
 {
+    int nleft;
+    int nbytes;
+    int nparts;
     int status;
 
     if (optv) {
@@ -229,7 +240,43 @@ io_read (resmgr_context_t *ctp, io_read_t *msg, RESMGR_OCB_T *ocb)
      * are the null device, we will return 0 bytes. Normally,       Поскольку мы являемся нулевым устройством, мы вернем 0 байт.
      * here you would write the number of bytes you                 Обычно здесь указывается количество байт, которое вы фактически
      * are actually returning.                                      возвращаете.*/
-    _IO_SET_READ_NBYTES(ctp, 0);
+    //_IO_SET_READ_NBYTES(ctp, 0);
+
+    /*  code from https://www.mikecramer.com/qnx/qnx_6.1_docs/neutrino/prog/resmgr.html
+     *  on all reads (first and subsequent) calculate
+     *  how many bytes we can return to the client,
+     *  based upon the number of bytes available (nleft)
+     *  and the client's buffer size
+     */
+
+    nleft = ocb->attr->nbytes - ocb->offset;
+    nbytes = min (msg->i.nbytes, nleft);
+
+    if (nbytes > 0) {
+        /* set up the return data IOV */
+        SETIOV (ctp->iov, buffer + ocb->offset, nbytes);
+
+        /* set up the number of bytes (returned by client's read()) */
+        _IO_SET_READ_NBYTES (ctp, nbytes);
+
+        /*
+         * advance the offset by the number of bytes
+         * returned to the client.
+         */
+
+        ocb->offset += nbytes;
+
+        nparts = 1;
+    } else {
+        /*
+         * they've asked for zero bytes or they've already previously
+         * read everything
+         */
+
+        _IO_SET_READ_NBYTES (ctp, 0);
+
+        nparts = 0;
+    }
 
     /* The next line (commented) is used to tell the system how     Следующая строка (с комментариями) используется, чтобы сообщить системе,
      * large your buffer is in which you want to return your        насколько велик ваш буфер, в который вы хотите вернуть свои данные
@@ -239,6 +286,9 @@ io_read (resmgr_context_t *ctp, io_read_t *msg, RESMGR_OCB_T *ocb)
      */
     //	SETIOV( ctp->iov, buf, sizeof(buf));
 
+    /* mark the access time as invalid (we just accessed it)        помечаем время доступа как недействительное
+     *                                                              (мы только что получили к нему доступ).
+    */
     if (msg->i.nbytes > 0) {
         ocb->attr->flags |= IOFUNC_ATTR_ATIME;
     }
@@ -247,7 +297,10 @@ io_read (resmgr_context_t *ctp, io_read_t *msg, RESMGR_OCB_T *ocb)
      * Normally, if you return actual data, you would return at     Обычно, если вы возвращаете фактические данные, вы возвращаете
      * least 1 part. A pointer to and a buffer length for 1 part    как минимум 1 часть. Указатель и длина буфера для 1 части
      * are located in the ctp structure.                            находятся в структуре ctp.*/
-    return (_RESMGR_NPARTS (0));
+    //return (_RESMGR_NPARTS (0));
+
+    // code from https://www.mikecramer.com/qnx/qnx_6.1_docs/neutrino/prog/resmgr.html
+    return (_RESMGR_NPARTS (nparts));
     /* What you return could also be several chunks of
      * data. In this case, you would return more
      * than 1 part. See the "time resource manager" example
