@@ -2,6 +2,12 @@
 
 /* This is a Resource Manager TWI (I2C) for QNX Neutrino (KPDA)
  *                  Orange Pi One Board
+ *                  start:  ./resm4twi -a64 -d0
+ *                  -a64 - address I2C
+ *                  -d0  - i2c0
+ *                  Change register:
+ *                  echo E3 > /dev/twi0
+ *                  echo E5 > /dev/twi0
  */
 
 
@@ -54,8 +60,16 @@ dispatch_context_t      *ctp;
 iofunc_attr_t           ioattr;
 
 char    *progname = "TWI";
-char    *buffer = "HTU21D driver\n";
-//char    buffer[15];
+//char    *buffer = "HTU21D driver\n";
+char    buffer[15] = {"HTU21D rrrrrr"};
+
+char    reg_num[100] = "0xE3";
+
+//#define PAGE_SIZE 1024
+
+/* buffer for Resource Manager values being read */
+//char                buffer[PAGE_SIZE];
+
 extern int optv;                               // if -v opt used - verbose all operation
 
 
@@ -222,6 +236,7 @@ io_read (resmgr_context_t *ctp, io_read_t *msg, RESMGR_OCB_T *ocb)
     int nbytes;
     int nparts;
     int status;
+    int rv;
 
     if (optv) {
         printf ("%s: in io_read..  ", progname);
@@ -252,8 +267,60 @@ io_read (resmgr_context_t *ctp, io_read_t *msg, RESMGR_OCB_T *ocb)
      *  and the client's buffer size
      */
 
+    /* TWI code */
+
+
     nleft = ocb->attr->nbytes - ocb->offset;
+//    printf ("%s: in io_read.. nleft = %d, ", progname, nleft);
+//    printf ("ocb->attr->nbytes = %d ", ocb->attr->nbytes);
     nbytes = min (msg->i.nbytes, nleft);
+
+    if (nleft > 0)
+    {
+        uint8_t * twi_msgbuf;
+        twi_msgbuf = malloc(sizeof(uint8_t)*3);
+        uint * twi_info;
+        uint twi_nbytes;
+
+        masterf.ctl(hdl, atoh(reg_num), twi_msgbuf, 3, &twi_nbytes, twi_info);
+
+
+        unsigned int sensor_bytes = (twi_msgbuf[0] << 8 | twi_msgbuf[1]) & 0xFFFC;
+        double sensor_float = sensor_bytes / 65536.0;
+        double measure = 0;
+
+        if ( atoh(reg_num) == 0xE3 )
+        {
+            measure = -46.85 + (175.72 * sensor_float);
+            printf("=============\n");
+            printf(" T=%f\n", measure);
+            printf("=============\n");
+            rv = sprintf(buffer, "T=%f\n", measure);
+
+    //        sprintf(buffer, "T=%fC", measure);
+    //        printf("%s\n", buffer);
+        }
+        else if ( atoh(reg_num) == 0xE5 )
+        {
+            measure = -6.0 + (125.0 * sensor_float);
+            printf("=============\n");
+            printf(" H=%5.2f%%rh\n", measure);
+            printf("=============\n");
+            rv = sprintf(buffer, "H=%5.2f%%rh\n", measure);
+
+    //        sprintf(buffer, "H=%frh", measure);
+    //        printf("%s\n", buffer);
+        }
+    }
+
+    /* TWI code end */
+
+    //rv = snprintf(buffer, 14, "HTU21G driver\n");
+
+//    nleft = ocb->attr->nbytes - ocb->offset;
+//    printf ("%s: in io_read.. nleft = %d, ", progname, nleft);
+//    printf ("ocb->attr->nbytes = %d ", ocb->attr->nbytes);
+//    nbytes = min (msg->i.nbytes, nleft);
 
     if (nbytes > 0) {
         /* set up the return data IOV */
@@ -268,6 +335,7 @@ io_read (resmgr_context_t *ctp, io_read_t *msg, RESMGR_OCB_T *ocb)
          */
 
         ocb->offset += nbytes;
+        //ocb->attr->nbytes = nbytes;    // it's my code - not work!
 
         nparts = 1;
     } else {
@@ -348,7 +416,7 @@ io_write (resmgr_context_t *ctp, io_write_t *msg, RESMGR_OCB_T *ocb)
      * In this example, we just take the number of  bytes that      В этом примере мы просто берем количество байт, которые были отправлены нам,
      * were sent to us and claim we successfully wrote them.        и заявляем, что мы их успешно записали.*/
     _IO_SET_WRITE_NBYTES (ctp, msg -> i.nbytes);
-    printf("\nGot write of %d bytes, data:\t", msg->i.nbytes);
+    printf("TWI_RM: Got write of %d bytes, data:\t", msg->i.nbytes);
 
     /* Here we print the data. This is a good example for the case  Здесь мы просто выводим данные. Для примера. Можно еще делать что-то..
      * where you actually would like to do something with the data.
@@ -378,7 +446,11 @@ io_write (resmgr_context_t *ctp, io_write_t *msg, RESMGR_OCB_T *ocb)
         free(buf);
     }
 
-    /* work TWI here */
+    // change register number
+    strcpy(reg_num, buf);
+
+/*
+    // work TWI here
     uint8_t * twi_msgbuf;
     twi_msgbuf = malloc(sizeof(uint8_t)*3);
     uint * twi_info;
@@ -410,7 +482,7 @@ io_write (resmgr_context_t *ctp, io_write_t *msg, RESMGR_OCB_T *ocb)
 //        printf("%s\n", buffer);
     }
 
-
+*/
 
 
 

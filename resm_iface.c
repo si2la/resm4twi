@@ -150,10 +150,10 @@ twi_ctl(void *hdl, int cmd, void *msg, int msglen,
     // now send request (register 0xE3 or 0xE5)
     uint8_t * buffer = msg;
 
-    printf("Quering 0x%0X register from device with addr 0x%0X...\n", cmd, dev->slave_addr);
+    printf("TWI_RM: Quering 0x%0X register from device with addr 0x%0X...\n", cmd, dev->slave_addr);
     if ( h3_i2c_read(buffer, 3, cmd) )
     {
-        printf("Error occured\n");
+        printf("TWI_RM: Error occured\n");
         return I2C_STATUS_ERROR;
     }
 
