@@ -55,14 +55,17 @@ iofunc_attr_t           ioattr;
 
 char    *progname = "TWI";
 char    *buffer = "HTU21D driver\n";
+//char    buffer[15];
 extern int optv;                               // if -v opt used - verbose all operation
 
 
 // *** i2c (twi) part /global/ ***
+
 i2c_master_funcs_t  masterf;
 i2c_status_t        status;
 // handle returned masterf
 void *hdl;
+
 // *** i2c (twi) part ***
 
 int main (int argc, char **argv)
@@ -78,6 +81,7 @@ int main (int argc, char **argv)
     i2c_master_getfuncs(&masterf, sizeof(masterf));
     masterf.version_info(&version);
     printf("%s resmanager, version %d.%d.%d\n", progname, version.major, version.minor, version.revision);
+    // TODO: print TWI interface number, device addr
 
     hdl = masterf.init(argc, argv);
 
@@ -89,7 +93,6 @@ int main (int argc, char **argv)
 
         return status;
     }
-
 
     /* end of i2c init part */
 
@@ -345,7 +348,7 @@ io_write (resmgr_context_t *ctp, io_write_t *msg, RESMGR_OCB_T *ocb)
      * In this example, we just take the number of  bytes that      В этом примере мы просто берем количество байт, которые были отправлены нам,
      * were sent to us and claim we successfully wrote them.        и заявляем, что мы их успешно записали.*/
     _IO_SET_WRITE_NBYTES (ctp, msg -> i.nbytes);
-    printf("got write of %d bytes, data:\t", msg->i.nbytes);
+    printf("\nGot write of %d bytes, data:\t", msg->i.nbytes);
 
     /* Here we print the data. This is a good example for the case  Здесь мы просто выводим данные. Для примера. Можно еще делать что-то..
      * where you actually would like to do something with the data.
@@ -377,12 +380,39 @@ io_write (resmgr_context_t *ctp, io_write_t *msg, RESMGR_OCB_T *ocb)
 
     /* work TWI here */
     uint8_t * twi_msgbuf;
-    uint * twi_info;
     twi_msgbuf = malloc(sizeof(uint8_t)*3);
+    uint * twi_info;
     uint twi_nbytes;
 
     //masterf.ctl(hdl, 0xE3, twi_msgbuf, 3, &twi_nbytes, twi_info);
     masterf.ctl(hdl, atoh(buf), twi_msgbuf, 3, &twi_nbytes, twi_info);
+
+    unsigned int sensor_bytes = (twi_msgbuf[0] << 8 | twi_msgbuf[1]) & 0xFFFC;
+    double sensor_float = sensor_bytes / 65536.0;
+    double measure = 0;
+
+    if ( atoh(buf) == 0xE3 )
+    {
+        measure = -46.85 + (175.72 * sensor_float);
+        printf("=============\n");
+        printf(" T=%f\n", measure);
+        printf("=============\n");
+//        sprintf(buffer, "T=%fC", measure);
+//        printf("%s\n", buffer);
+    }
+    else if ( atoh(buf) == 0xE5 )
+    {
+        measure = -6.0 + (125.0 * sensor_float);
+        printf("=============\n");
+        printf(" H=%5.2f%%rh\n", measure);
+        printf("=============\n");
+//        sprintf(buffer, "H=%frh", measure);
+//        printf("%s\n", buffer);
+    }
+
+
+
+
 
     /* Finally, if we received more than 0 bytes, we mark the       Наконец, если мы получили более 0 байт, мы помечаем
     * file information for the device to be updated:                какая информация в файле устройства будет изменена:

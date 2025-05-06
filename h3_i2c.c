@@ -377,12 +377,12 @@ static int _read(char *buffer, int len, uint8_t reg_code) {
 
     while ((time--) && (!(read_reg(SPTR_CAST(EXT_I2C->CTL)) & 0x08)))   // wait INT_FLAG
         printf("*");
-
+#ifdef DEBUG
     // Receiving data
     printf("===============\n");
     printf("Receiving data:\n");
     printf("===============\n");
-
+#endif
     time = 0xffff;
     tmp_val = read_reg(SPTR_CAST(EXT_I2C->CTL));
     tmp_val |= CTL_A_ACK;
@@ -395,8 +395,9 @@ static int _read(char *buffer, int len, uint8_t reg_code) {
     tmp_val = read_reg(SPTR_CAST(EXT_I2C->DATA));
     byte1 = (uint8_t)tmp_val;
     *buffer = (char)tmp_val;
-    printf (" Data(MSB) = 0x%0X\n", /*tmp_val*/byte1);
+
 #ifdef DEBUG
+    printf (" Data(MSB) = 0x%0X\n", /*tmp_val*/byte1);
     printf("Measurement time in proc tick = %d\n", 0xffff-time);
     printf("++STAT->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->STAT)) );
     printf("++CTL->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->CTL)) );
@@ -412,8 +413,9 @@ static int _read(char *buffer, int len, uint8_t reg_code) {
     tmp_val = read_reg(SPTR_CAST(EXT_I2C->DATA));
     byte2 = (uint8_t)tmp_val;
     buffer[1] = (char)tmp_val;
-    printf (" Data(LSB) = 0x%0X\n", /*tmp_val*/byte2);
+
 #ifdef DEBUG
+    printf (" Data(LSB) = 0x%0X\n", /*tmp_val*/byte2);
     printf("Measurement time in proc tick = %d\n", 0xffff-time);
     printf("++STAT->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->STAT)) );
     printf("++CTL->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->CTL)) );
@@ -429,8 +431,8 @@ static int _read(char *buffer, int len, uint8_t reg_code) {
 
     tmp_val = read_reg(SPTR_CAST(EXT_I2C->DATA));
     buffer[2] = (char)tmp_val;
-    printf (" CHECKSUM  = 0x%0X\n", tmp_val);
 #ifdef DEBUG
+    printf (" CHECKSUM  = 0x%0X\n", tmp_val);
     printf("Measurement time in proc tick = %d\n", 0xffff-time);
     printf("++STAT->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->STAT)) );
     printf("++CTL->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->CTL)) );
