@@ -2,12 +2,18 @@
 
 /* This is a Resource Manager TWI (I2C) for QNX Neutrino (KPDA)
  *                  Orange Pi One Board
- *                  start:  ./resm4twi -a64 -d0
+ *
+ *                  start app:  ./resm4twi -a64 -d0 -v
  *                  -a64 - address I2C
  *                  -d0  - i2c0
+ *                  -v   - verbose
+ *
  *                  Change register:
  *                  echo E3 > /dev/twi0
  *                  echo E5 > /dev/twi0
+ *
+ *                  read register:
+ *                  cat /dev/twi0
  */
 
 
@@ -94,7 +100,7 @@ int main (int argc, char **argv)
 
     i2c_master_getfuncs(&masterf, sizeof(masterf));
     masterf.version_info(&version);
-    printf("%s resmanager, version %d.%d.%d\n", progname, version.major, version.minor, version.revision);
+    printf("%s ResManager, version %d.%d.%d\n", progname, version.major, version.minor, version.revision);
     // TODO: print TWI interface number, device addr
 
     hdl = masterf.init(argc, argv);

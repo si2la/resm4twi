@@ -1,0 +1,8 @@
+Resource Manager (RM) structure:
+
+resm_twi.c - actually, the RM itself, the code is copied from the QNX example
+
+resm_iface.c, resm_iface.h - RM interface for init(), version_info(), ctl() (use i2c_master_getfuncs())
+#include "h3_i2c.h"
+
+h3_i2c.c. h3_i2c.h - platform-dependent code (H3 processor) 
