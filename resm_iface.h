@@ -22,6 +22,11 @@ typedef struct _twi_dev
     uint8_t         *buf;
 } twi_dev_t;
 
+typedef union _my_devctl_msg {
+    int tx;     /* Filled by client on send */
+    int rx;     /* Filled by server on reply */
+} data_t;
+
 int twi_version_info(i2c_libversion_t *version);
 void * twi_init(int argc, char *argv[]);
 

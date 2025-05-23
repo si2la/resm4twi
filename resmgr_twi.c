@@ -41,6 +41,7 @@ void options (int argc, char **argv);
 int io_open (resmgr_context_t *ctp, io_open_t  *msg, RESMGR_HANDLE_T *handle, void *extra);
 int io_read (resmgr_context_t *ctp, io_read_t  *msg, RESMGR_OCB_T *ocb);
 int io_write(resmgr_context_t *ctp, io_write_t *msg, RESMGR_OCB_T *ocb);
+int io_devctl(resmgr_context_t *ctp, io_devctl_t *msg, RESMGR_OCB_T *ocb);
 
 /*
  * Our connect and I/O functions - we supply two tables             Наши функции подключения и ввода-вывода - предоставляют две таблицы,
@@ -66,10 +67,13 @@ dispatch_context_t      *ctp;
 iofunc_attr_t           ioattr;
 
 char    *progname = "TWI";
+char    *pref = "TWI_RM:";
 //char    *buffer = "HTU21D driver\n";
-char    buffer[15] = {"HTU21D rrrrrr"};
+char    buffer[15] = {"HTU21D  MESS"};
 
 char    reg_num[100] = "0xE3";
+
+int global_integer = 3;
 
 //#define PAGE_SIZE 1024
 
@@ -156,6 +160,8 @@ int main (int argc, char **argv)
     connect_funcs.open = io_open;
     io_funcs.read = io_read;
     io_funcs.write = io_write;
+    /* For handling _IO_DEVCTL, sent by devctl() */
+    io_funcs.devctl = io_devctl;
 
     /* Initialize the device attributes for the particular          Инициализируем атрибуты устройства для конкретного
      * device name we are going to register. It consists of         имени устройства, которое мы собираемся зарегистрировать.
@@ -422,7 +428,7 @@ io_write (resmgr_context_t *ctp, io_write_t *msg, RESMGR_OCB_T *ocb)
      * In this example, we just take the number of  bytes that      В этом примере мы просто берем количество байт, которые были отправлены нам,
      * were sent to us and claim we successfully wrote them.        и заявляем, что мы их успешно записали.*/
     _IO_SET_WRITE_NBYTES (ctp, msg -> i.nbytes);
-    printf("TWI_RM: Got write of %d bytes, data:\t", msg->i.nbytes);
+    printf("\nTWI_RM: Got write of %d bytes, data -\t", msg->i.nbytes);
 
     /* Here we print the data. This is a good example for the case  Здесь мы просто выводим данные. Для примера. Можно еще делать что-то..
      * where you actually would like to do something with the data.
@@ -508,10 +514,88 @@ io_write (resmgr_context_t *ctp, io_write_t *msg, RESMGR_OCB_T *ocb)
 
 /* Why we don't have any close callback? Because the default        Почему у нас нет обратного вызова close? Потому что ф. по-умолч.
  * function, iofunc_close_ocb_default(), does all we need in this   iofunc_close_ocb_default(), выполняет все, что нам нужно в этом случае:
- * case: Free the ocb, update the time stamps etc. See the docs     освобождает ocp, обновляет временные метки и т.д.
+ * case: Free the ocb, update the time stamps etc. See the docs     освобождает ocb, обновляет временные метки и т.д.
  * for more info.                                                   Доп. информацию смотрите в документации.
  */
 
+int io_devctl(resmgr_context_t *ctp, io_devctl_t *msg, RESMGR_OCB_T *ocb) {
+    int nbytes, status, previous;
+
+    /* see Writing a Resource Manager [6.5.0 SP1].pdf */
+    union { /* See note 1 */
+        data_t data;
+        int    data32;
+    /* ... other devctl types you can receive */
+    } *rx_data;
+
+    /*
+     *  Let common code handle DCMD_ALL_* cases.
+     *  You can do this before or after you intercept devctls,
+     *  depending on your intentions.
+     *  Here we aren’t using any predefined values,
+     *  so let the system ones be handled first. See note 2.
+     */
+    if ((status = iofunc_devctl_default(ctp, msg, ocb)) != _RESMGR_DEFAULT) {
+        return(status);
+    }
+    status = nbytes = 0;
+
+    /*
+     * Note this assumes that you can fit the entire data portion of
+     * the devctl into one message. In reality you should probably
+     * perform a MsgReadv() once you know the type of message you
+     * have received to get all of the data, rather than assume
+     * it all fits in the message. We have set in our main routine
+     * that we’ll accept a total message size of up to 2 KB, so we
+     * don’t worry about it in this example where we deal with ints.
+     */
+
+    /* Get the data from the message. See Note 3. */
+    rx_data = _DEVCTL_DATA(msg->i);
+
+    /* switch/case of devctl operations:
+     * see Writing a Resource Manager [6.5.0 SP1].pdf
+     * page 100
+     */
+    switch (msg->i.dcmd) {
+    case DCMD_I2C_SET_SLAVE_ADDR:
+        global_integer = rx_data->data32;
+        nbytes = 0;
+        printf ("\n%s message DCMD_I2C_SET_SLAVE_ADDR\n\n", pref);
+        break;
+
+    case DCMD_I2C_SET_BUS_SPEED:
+        global_integer = rx_data->data32;
+        nbytes = 0;
+        printf ("\n%s message DCMD_I2C_SET_BUS_SPEED - %d\n\n", pref, global_integer);
+        break;
+
+    case DCMD_I2C_MASTER_SEND:
+        previous = global_integer;
+        global_integer = rx_data->data.tx;
+        /* See note 4. The rx data overwrites the tx data
+        for this command. */
+        rx_data->data.rx = previous;
+        nbytes = sizeof(rx_data->data.rx);
+        printf ("\n%s message DCMD_I2C_MASTER_SEND\n\n", pref);
+        break;
+
+    default:
+        return(ENOSYS);
+    }
+    /* Clear the return message. Note that we saved our data past
+    this location in the message. */
+    memset(&msg->o, 0, sizeof(msg->o));
+    /* If you wanted to pass something different to the return
+     * field of the devctl() you could do it through this member.
+     * See note 5.
+    */
+    msg->o.ret_val = status;
+
+    /* Indicate the number of bytes and return the message */
+    msg->o.nbytes = nbytes;
+    return(_RESMGR_PTR(ctp, &msg->o, sizeof(msg->o) + nbytes));
+}
 
 /*
  *  options
