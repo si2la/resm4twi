@@ -9,11 +9,18 @@
  *                  -v   - verbose
  *
  *                  Change register:
- *                  echo E3 > /dev/twi0
- *                  echo E5 > /dev/twi0
+ *                  # echo E3 > /dev/twi0  // temperature
+ *                  # echo E5 > /dev/twi0  // pressure
  *
  *                  read register:
- *                  cat /dev/twi0
+ *                  # cat /dev/twi0
+ *
+ *                  read attr
+ *                  # stty < /dev/twi0
+ *
+ *                  set baudrate attr
+ *                  # stty baud=100000 < /dev/twi0
+ *
  */
 
 
@@ -104,7 +111,7 @@ int main (int argc, char **argv)
 
     i2c_master_getfuncs(&masterf, sizeof(masterf));
     masterf.version_info(&version);
-    printf("%s ResManager, version %d.%d.%d\n", progname, version.major, version.minor, version.revision);
+    printf("%s ResManager, i2c libversion %d.%d.%d\n", progname, version.major, version.minor, version.revision);
     // TODO: print TWI interface number, device addr
 
     hdl = masterf.init(argc, argv);
@@ -527,6 +534,7 @@ int io_devctl(resmgr_context_t *ctp, io_devctl_t *msg, RESMGR_OCB_T *ocb) {
         int    data32;
     /* ... other devctl types you can receive */
     } *rx_data;
+    struct termios *ttt;
 
     /*
      *  Let common code handle DCMD_ALL_* cases.
@@ -578,6 +586,17 @@ int io_devctl(resmgr_context_t *ctp, io_devctl_t *msg, RESMGR_OCB_T *ocb) {
         rx_data->data.rx = previous;
         nbytes = sizeof(rx_data->data.rx);
         printf ("\n%s message DCMD_I2C_MASTER_SEND\n\n", pref);
+        break;
+    case DCMD_CHR_TCSETATTR:
+    case DCMD_CHR_TCSETATTRD:
+    case DCMD_CHR_TCSETATTRF:
+        ttt = _DEVCTL_DATA(msg->i);
+        global_integer = cfgetospeed(ttt);
+        nbytes = 0;
+        printf ("\n%s message DCMD_CHR_TCSETATTR - %d\n\n", pref, global_integer);
+        break;
+    case DCMD_CHR_TCGETATTR:
+        printf ("\n%s message DCMD_CHR_TCGETATTR - %d\n\n", pref, global_integer);
         break;
 
     default:

@@ -7,6 +7,10 @@
 #include <string.h>
 #include <sys/neutrino.h>
 
+// for stty
+#include <sys/dcmd_chr.h>
+#include <termios.h>
+
 #include <hw/i2c.h>
 
 #include "h3_i2c.h"
