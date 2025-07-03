@@ -8,11 +8,11 @@
  *                  -d0  - i2c0
  *                  -v   - verbose
  *
- *                  Change register:
+ *                  Change the current register:
  *                  # echo E3 > /dev/twi0  // temperature
  *                  # echo E5 > /dev/twi0  // pressure
  *
- *                  read register:
+ *                  read current register:
  *                  # cat /dev/twi0
  *
  *                  read attr
@@ -111,7 +111,7 @@ int main (int argc, char **argv)
 
     i2c_master_getfuncs(&masterf, sizeof(masterf));
     masterf.version_info(&version);
-    printf("%s ResManager, i2c libversion %d.%d.%d\n", progname, version.major, version.minor, version.revision);
+    printf("%s ResManager, i2c_lib_version %d.%d.%d\n\n", progname, version.major, version.minor, version.revision);
     // TODO: print TWI interface number, device addr
 
     hdl = masterf.init(argc, argv);
@@ -227,6 +227,7 @@ int main (int argc, char **argv)
 int
 io_open (resmgr_context_t *ctp, io_open_t *msg, RESMGR_HANDLE_T *handle, void *extra)
 {
+    /// note then ls command use io_open call
     if (optv) {
         printf ("%s: in io_open..  ", progname);
     }
@@ -529,12 +530,13 @@ int io_devctl(resmgr_context_t *ctp, io_devctl_t *msg, RESMGR_OCB_T *ocb) {
     int nbytes, status, previous;
 
     /* see Writing a Resource Manager [6.5.0 SP1].pdf */
-    union { /* See note 1 */
+    union { /* See note 1 page 101*/
         data_t data;
         int    data32;
     /* ... other devctl types you can receive */
     } *rx_data;
     struct termios *ttt;
+    struct _ttyinfo *info;
 
     /*
      *  Let common code handle DCMD_ALL_* cases.
@@ -569,13 +571,13 @@ int io_devctl(resmgr_context_t *ctp, io_devctl_t *msg, RESMGR_OCB_T *ocb) {
     case DCMD_I2C_SET_SLAVE_ADDR:
         global_integer = rx_data->data32;
         nbytes = 0;
-        printf ("\n%s message DCMD_I2C_SET_SLAVE_ADDR\n\n", pref);
+        printf ("\n%s Got message DCMD_I2C_SET_SLAVE_ADDR\n\n", pref);
         break;
 
     case DCMD_I2C_SET_BUS_SPEED:
         global_integer = rx_data->data32;
         nbytes = 0;
-        printf ("\n%s message DCMD_I2C_SET_BUS_SPEED - %d\n\n", pref, global_integer);
+        printf ("\n%s Got message DCMD_I2C_SET_BUS_SPEED - %d\n\n", pref, global_integer);
         break;
 
     case DCMD_I2C_MASTER_SEND:
@@ -585,18 +587,28 @@ int io_devctl(resmgr_context_t *ctp, io_devctl_t *msg, RESMGR_OCB_T *ocb) {
         for this command. */
         rx_data->data.rx = previous;
         nbytes = sizeof(rx_data->data.rx);
-        printf ("\n%s message DCMD_I2C_MASTER_SEND\n\n", pref);
+        printf ("\n%s Got message DCMD_I2C_MASTER_SEND\n\n", pref);
         break;
+
     case DCMD_CHR_TCSETATTR:
     case DCMD_CHR_TCSETATTRD:
     case DCMD_CHR_TCSETATTRF:
         ttt = _DEVCTL_DATA(msg->i);
         global_integer = cfgetospeed(ttt);
         nbytes = 0;
-        printf ("\n%s message DCMD_CHR_TCSETATTR - %d\n\n", pref, global_integer);
+        printf ("\n%s Got message DCMD_CHR_TCSETATTR, int value = %d\n\n", pref, global_integer);
         break;
+
     case DCMD_CHR_TCGETATTR:
-        printf ("\n%s message DCMD_CHR_TCGETATTR - %d\n\n", pref, global_integer);
+        printf ("\n%s Got message DCMD_CHR_TCGETATTR, int value = %d\n\n", pref, global_integer);
+        break;
+
+    case DCMD_CHR_TTYINFO:
+        printf ("\n%s Got message DCMD_CHR_TTYINFO\n\n", pref);
+//        info = _DEVCTL_DATA(msg->i);
+//        info->opencount = 2;
+//        strcpy(info->ttyname, "ser");
+
         break;
 
     default:
@@ -605,14 +617,36 @@ int io_devctl(resmgr_context_t *ctp, io_devctl_t *msg, RESMGR_OCB_T *ocb) {
     /* Clear the return message. Note that we saved our data past
     this location in the message. */
     memset(&msg->o, 0, sizeof(msg->o));
-    /* If you wanted to pass something different to the return
-     * field of the devctl() you could do it through this member.
-     * See note 5.
-    */
-    msg->o.ret_val = status;
 
-    /* Indicate the number of bytes and return the message */
-    msg->o.nbytes = nbytes;
+    if (msg->i.dcmd == DCMD_CHR_TTYINFO)
+    {
+        // See note 3.
+        info = _DEVCTL_DATA(msg->o);
+        info->opencount = 1;
+        strcpy(info->ttyname, "serial");
+    }
+    else if (msg->i.dcmd == DCMD_CHR_TCGETATTR)
+    {
+        ttt = _DEVCTL_DATA(msg->o);
+        cfsetospeed (ttt, global_integer);
+        cfsetispeed (ttt, global_integer);
+        ttt->c_cflag = (ttt->c_cflag & ~CSIZE) | CS8;     // 8-bit chars
+    }
+    else
+    {
+        // this code from example:
+        /* If you wanted to pass something different to the return
+         * field of the devctl() you could do it through this member.
+         * See note 5.
+        */
+        msg->o.ret_val = status;
+
+        /* Indicate the number of bytes and return the message */
+        msg->o.nbytes = nbytes;
+    }
+
+
+
     return(_RESMGR_PTR(ctp, &msg->o, sizeof(msg->o) + nbytes));
 }
 

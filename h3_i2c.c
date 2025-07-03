@@ -7,6 +7,7 @@
 
 #include "h3_i2c.h"
 
+// TODO see all calls with DEBUG
 //#define DEBUG 1
 
 #define SPTR_CAST(x)     (uintptr_t)&(x)
