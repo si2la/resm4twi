@@ -105,7 +105,6 @@ twi_init(int argc, char *argv[])
                 if (verbose) fprintf(stdout, "Write - OK!\n");
             }
 
-
             // now set TWI0 gating
             cfg_reg_val = read_reg(H3_CCU_BASE + H3_BUS_CLK_GATING_REG3);
             cfg_reg_val |= 0x01;
@@ -129,8 +128,11 @@ twi_init(int argc, char *argv[])
             }
 
             // check right init state
-            cfg_reg_val = read_reg(SPTR_CAST(EXT_I2C->CTL));
-            fprintf(stdout, "TWI0 CTL Reg value = 0x%0X\n", cfg_reg_val);
+            if (verbose)
+            {
+                cfg_reg_val = read_reg(SPTR_CAST(EXT_I2C->CTL));
+                fprintf(stdout, "TWI0 CTL Reg value = 0x%0X\n", cfg_reg_val);
+            }
 
             // 0xC0 - (INT_EN + BUS_EN) see page 444 of Allwinner_H3_Datasheet_V1.2
             if ( write_reg(SPTR_CAST(EXT_I2C->CTL), 0xC0) ) goto fail_dev;
