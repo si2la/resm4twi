@@ -10,7 +10,7 @@
 // TODO see all calls with DEBUG
 //#define DEBUG 1
 
-#define SPTR_CAST(x)     (uintptr_t)&(x)
+//#define SPTR_CAST(x)     (uintptr_t)&(x)  // 07.07.2025 go to .h
 
 static uint8_t s_slave_address = 0;
 static uint32_t s_current_baudrate = 0;

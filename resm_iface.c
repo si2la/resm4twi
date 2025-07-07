@@ -64,13 +64,13 @@ twi_init(int argc, char *argv[])
         }
     }
 
-    if (dev->slave_addr == 0) goto fail_free_dev;
+    if (dev->slave_addr == 0) goto fail_dev;
 
     if( verbose )
     {
-        fprintf(stdout, "slave_addr = %d\n", dev->slave_addr);
-        fprintf(stdout, "speed = %d\n", dev->speed);
-        fprintf(stdout, "dev_num = %d\n", dev->twi_num);
+        fprintf(stdout, "Slave_addr = %d\n", dev->slave_addr);
+        fprintf(stdout, "Speed = %d\n", dev->speed);
+        fprintf(stdout, "Dev_num = %d\n", dev->twi_num);
         fflush;
     }
 
@@ -98,19 +98,49 @@ twi_init(int argc, char *argv[])
             // 18 bit down
             cfg_reg_val &= ~( 0x01 << 18 );
 
-            if (write_reg(H3_PIO_BASE + H3_PA_CFG1_REG, cfg_reg_val)) goto fail_free_dev;
+            if (verbose) fprintf(stdout, "Bus Cfg Reg value = 0x%0X\n", cfg_reg_val);
+            if (write_reg(H3_PIO_BASE + H3_PA_CFG1_REG, cfg_reg_val)) goto fail_dev;
+            else
+            {
+                if (verbose) fprintf(stdout, "Write - OK!\n");
+            }
+
 
             // now set TWI0 gating
             cfg_reg_val = read_reg(H3_CCU_BASE + H3_BUS_CLK_GATING_REG3);
             cfg_reg_val |= 0x01;
 
-            if (write_reg(H3_CCU_BASE + H3_BUS_CLK_GATING_REG3, cfg_reg_val)) goto fail_free_dev;
+            if (verbose) fprintf(stdout, "Bus CLK gating Reg value = 0x%0X\n", cfg_reg_val);
+            if (write_reg(H3_CCU_BASE + H3_BUS_CLK_GATING_REG3, cfg_reg_val)) goto fail_dev;
+            else
+            {
+                if (verbose) fprintf(stdout, "Write - OK!\n");
+            }
 
             // and Bus soft reset TWI0
             cfg_reg_val = read_reg(H3_CCU_BASE + H3_BUS_SOFT_RST_REG4);
             cfg_reg_val |= 0x01;
 
-            if (write_reg(H3_CCU_BASE + H3_BUS_SOFT_RST_REG4, cfg_reg_val)) goto fail_free_dev;
+            if (verbose) fprintf(stdout, "Bus Soft reset Reg value = 0x%0X\n", cfg_reg_val);
+            if (write_reg(H3_CCU_BASE + H3_BUS_SOFT_RST_REG4, cfg_reg_val)) goto fail_dev;
+            else
+            {
+                if (verbose) fprintf(stdout, "Write - OK!\n");
+            }
+
+            // check right init state
+            cfg_reg_val = read_reg(SPTR_CAST(EXT_I2C->CTL));
+            fprintf(stdout, "TWI0 CTL Reg value = 0x%0X\n", cfg_reg_val);
+
+            // 0xC0 - (INT_EN + BUS_EN) see page 444 of Allwinner_H3_Datasheet_V1.2
+            if ( write_reg(SPTR_CAST(EXT_I2C->CTL), 0xC0) ) goto fail_dev;
+
+            int i = 0;
+            while ( ++i < 10 && (read_reg(SPTR_CAST(EXT_I2C->CTL)) != 0xC0)) printf("wait CTL to set 0xC0...");
+            if (i >= 9) goto fail_dev;
+
+
+            // end of TWI0 initialization
 
             break;
 
@@ -129,7 +159,7 @@ twi_init(int argc, char *argv[])
 
     return dev;
 
-fail_free_dev:
+fail_dev:
     free(dev);
     return NULL;
 }

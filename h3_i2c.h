@@ -3,7 +3,9 @@
 
 #include <stdint.h>
 
-# define _CAST(x)	(x)
+#define _CAST(x)	(x)
+#define SPTR_CAST(x)     (uintptr_t)&(x)
+
 
 #define MEGABYTE				0x100000
 #define H3_F_24M				24000000
