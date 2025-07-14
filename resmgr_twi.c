@@ -139,7 +139,7 @@ int main (int argc, char **argv)
     if (dpp == NULL) {
         fprintf (stderr, "%s:  couldn't dispatch_create: %s\n",
                  progname, strerror (errno));
-        exit (1);
+        exit (DISPATCH_ERROR);
     }
 
     /* Set up the resource manager attributes structure. We'll      Настройте структуру атрибутов менеджера ресурсов.
@@ -181,11 +181,12 @@ int main (int argc, char **argv)
      * with the process manager, and also to let it know about      устройства в диспетчере процессов, а также сообщить ему о
      * our connect and I/O functions.                               наших функциях подключения и ввода-вывода.*/
     pathID = resmgr_attach (dpp, &rattr, "/dev/twi0",
+    //pathID = resmgr_attach (dpp, &rattr, "/dev/serial",
                             _FTYPE_ANY, 0, &connect_funcs, &io_funcs, &ioattr);
     if (pathID == -1) {
         fprintf (stderr, "%s:  couldn't attach pathname: %s\n",
                  progname, strerror (errno));
-        exit (1);
+        exit (ENOENT);
     }
 
     /* Now we allocate some memory for the dispatch context         Теперь мы выделяем немного памяти для структуры контекста диспетчера (ctp),
@@ -202,7 +203,7 @@ int main (int argc, char **argv)
         if ((ctp = dispatch_block (ctp)) == NULL) {
             fprintf (stderr, "%s:  dispatch_block failed: %s\n",
                      progname, strerror (errno));
-            exit (1);
+            exit (DISPATCH_ERROR);
         }
         /* Call the correct callback function for the message       Вызовите правильную функцию обратного вызова для
          * received. This is a single-threaded resource manager,    полученного сообщения. Это однопоточный менеджер
@@ -331,6 +332,7 @@ io_read (resmgr_context_t *ctp, io_read_t *msg, RESMGR_OCB_T *ocb)
     //        sprintf(buffer, "H=%frh", measure);
     //        printf("%s\n", buffer);
         }
+        else rv = sprintf(buffer, "R=%d\n", twi_msgbuf);
     }
 
     /* TWI code end */
@@ -600,54 +602,70 @@ int io_devctl(resmgr_context_t *ctp, io_devctl_t *msg, RESMGR_OCB_T *ocb) {
         break;
 
     case DCMD_CHR_TCGETATTR:
-        printf ("\n%s Got message DCMD_CHR_TCGETATTR, int value = %d\n\n", pref, global_integer);
+        printf ("\n%s Got message DCMD_CHR_TCGETATTR, send int value = %d as speed\n\n", pref, global_integer);
+        nbytes = sizeof(struct termios);
+        ttt = malloc(nbytes);
+        // это устанавливает указатель передаваемых данных на "правильное"
+        // (после заголовка msg->o) место
+        //     v````````
+        ttt = _DEVCTL_DATA(msg->o);
+        cfsetospeed (ttt, global_integer);
+        cfsetispeed (ttt, global_integer);
+        ttt->c_cflag = (ttt->c_cflag & ~CSIZE) | CS8;     // 8-bit chars
+
+        // и это обязательно!!! чтобы принимающая сторона понимала
+        // сколько ждать данных
+        msg->o.nbytes = nbytes;
+
+//        printf("End of io_devctl nbytes = %d\n", nbytes);
+//        printf("termios->c_ispeed = %d\n", cfgetispeed(ttt) );
+//        printf("termios->c_ospeed = %d\n", cfgetospeed(ttt) );
+
         break;
 
     case DCMD_CHR_TTYINFO:
         printf ("\n%s Got message DCMD_CHR_TTYINFO\n\n", pref);
-//        info = _DEVCTL_DATA(msg->i);
-//        info->opencount = 2;
-//        strcpy(info->ttyname, "ser");
+        nbytes = sizeof(struct _ttyinfo);
+        info = malloc(nbytes);
+        // это устанавливает указатель передаваемых данных на "правильное"
+        // (после заголовка msg->o) место
+        //     v````````
+        info = _DEVCTL_DATA(msg->o);
+
+        msg->o.nbytes = nbytes;
+
+        //info->opencount = 2;
+        // name must started from "ser"
+        // if you want see right the Type field
+        // see https://forums.openqnx.com/t/topic/31846
+        strcpy(info->ttyname, "serial two wires (i2c) device");
+        //printf("End of io_devctl nbytes = %d\n", nbytes);
 
         break;
 
     default:
         return(ENOSYS);
     }
+
     /* Clear the return message. Note that we saved our data past
     this location in the message. */
-    memset(&msg->o, 0, sizeof(msg->o));
-
-    if (msg->i.dcmd == DCMD_CHR_TTYINFO)
-    {
-        // See note 3.
-        info = _DEVCTL_DATA(msg->o);
-        info->opencount = 1;
-        strcpy(info->ttyname, "serial");
-    }
-    else if (msg->i.dcmd == DCMD_CHR_TCGETATTR)
-    {
-        ttt = _DEVCTL_DATA(msg->o);
-        cfsetospeed (ttt, global_integer);
-        cfsetispeed (ttt, global_integer);
-        ttt->c_cflag = (ttt->c_cflag & ~CSIZE) | CS8;     // 8-bit chars
-    }
-    else
-    {
-        // this code from example:
-        /* If you wanted to pass something different to the return
-         * field of the devctl() you could do it through this member.
-         * See note 5.
-        */
-        msg->o.ret_val = status;
-
-        /* Indicate the number of bytes and return the message */
-        msg->o.nbytes = nbytes;
-    }
+    //printf("Clearing output message\n");
+    //memset(&msg->o, 0, sizeof(msg->o));
 
 
+
+    // this code from example:
+    /* If you wanted to pass something different to the return
+     * field of the devctl() you could do it through this member.
+     * See note 5.
+    */
+    //msg->o.ret_val = status;
+
+    /* Indicate the number of bytes and return the message */
+    //msg->o.nbytes = nbytes;
 
     return(_RESMGR_PTR(ctp, &msg->o, sizeof(msg->o) + nbytes));
+
 }
 
 /*

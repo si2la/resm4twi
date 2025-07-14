@@ -133,7 +133,7 @@ static int32_t _stop() {
     }
 #ifdef DEBUG
     printf ("\nIn %s STAT is:\n", __FUNCTION__);
-    print_reg(SPTR_CAST(EXT_I2C->STAT), 1);
+    //print_reg(SPTR_CAST(EXT_I2C->STAT), 1);
     printf("_stop() is OK\n");
 #endif
 

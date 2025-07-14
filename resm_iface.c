@@ -134,7 +134,7 @@ twi_init(int argc, char *argv[])
                 fprintf(stdout, "TWI0 CTL Reg value = 0x%0X\n", cfg_reg_val);
             }
 
-            // 0xC0 - (INT_EN + BUS_EN) see page 444 of Allwinner_H3_Datasheet_V1.2
+            // Set Control Reg to 0xC0 -> (INT_EN + BUS_EN) see page 444 of Allwinner_H3_Datasheet_V1.2
             if ( write_reg(SPTR_CAST(EXT_I2C->CTL), 0xC0) ) goto fail_dev;
 
             int i = 0;
@@ -189,6 +189,7 @@ twi_ctl(void *hdl, int cmd, void *msg, int msglen,
         return I2C_STATUS_ERROR;
     }
 
+    // TODO handle it...
     ret = I2C_STATUS_DONE;
 
     return ret;
