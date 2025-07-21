@@ -8,7 +8,7 @@
 #include "h3_i2c.h"
 
 // TODO see all calls with DEBUG
-//#define DEBUG 1
+#define DEBUG 1
 
 //#define SPTR_CAST(x)     (uintptr_t)&(x)  // 07.07.2025 go to .h
 
@@ -132,9 +132,9 @@ static int32_t _stop() {
         return -H3_I2C_NOK_TOUT;
     }
 #ifdef DEBUG
-    printf ("\nIn %s STAT is:\n", __FUNCTION__);
+    printf ("\nIn %s STAT->0x%0X\n", __FUNCTION__, read_reg(SPTR_CAST(EXT_I2C->STAT)));
     //print_reg(SPTR_CAST(EXT_I2C->STAT), 1);
-    printf("_stop() is OK\n");
+    printf("_stop() is OK\n\n");
 #endif
 
     return H3_I2C_OK;
@@ -148,13 +148,14 @@ static int32_t _sendstart() {
     printf ("\nEnter to _sendstart()\n");
 #endif
 
-    write_reg(SPTR_CAST(EXT_I2C->EFR), 0x0);          // Data Byte to be written after read command
+    write_reg(SPTR_CAST(EXT_I2C->EFR), 0x0);          // Data Byte to be written after read command???
 #ifdef DEBUG
-    printf ("\nEFR->0 is OK, Soft Reset TWI0 now... \n");
+    printf ("\nEFR->0 is OK... \n");
+    //printf ("\nEFR->0 is OK, Soft Reset TWI0 now... \n");
 #endif
-    write_reg(SPTR_CAST(EXT_I2C->SRST), 1);
+//    write_reg(SPTR_CAST(EXT_I2C->SRST), 1);
 //    printf ("SRST->1 is OK\n");
-    usleep(100);    // TODO - why sleep??
+//    usleep(100);    // TODO - why sleep??
 
 #ifdef DEBUG
     printf("Before sendstart() CTL->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->CTL)) );
@@ -254,7 +255,7 @@ static int32_t _sendrestart() {
 }
 
 static int32_t _sendslaveaddr(uint32_t mode) {
-    int32_t i = 0, time = TIMEOUT;
+    int32_t i = 0, time = TIMEOUT*2;
     uint32_t tmp_val;
 
     mode &= 1;
@@ -269,9 +270,6 @@ static int32_t _sendslaveaddr(uint32_t mode) {
     printf(" address to be write - 0x%0X\n", tmp_val);
 #endif
     write_reg(SPTR_CAST(EXT_I2C->DATA), tmp_val);
-//    printf("\nIn %s DATA is:\n", __FUNCTION__);
-//    print_reg(SPTR_CAST(EXT_I2C->DATA), 1);
-
 
     tmp_val = read_reg(SPTR_CAST(EXT_I2C->CTL));
     tmp_val |= (0x01 << 3);                              // INT_FLAG ^
@@ -310,7 +308,7 @@ static int32_t _sendslaveaddr(uint32_t mode) {
 
 static int _read(char *buffer, int len, uint8_t reg_code) {
     int i=0, ret, ret0 = -1;
-    int32_t time = 0xffff;
+    int32_t time = TIMEOUT;
     uint32_t tmp_val;
 
     uint8_t byte1, byte2;
@@ -348,7 +346,7 @@ static int _read(char *buffer, int len, uint8_t reg_code) {
     else
     {
 #ifdef DEBUG
-    printf ("\n Send 0x%0X (Reg Addr) is OK\n\n", reg_code);
+    printf ("Send 0x%0X (Reg Addr) is OK\n\n", reg_code);
     printf("+STAT->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->STAT)) );
     printf("+CTL->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->CTL)) );
 #endif
@@ -360,7 +358,7 @@ static int _read(char *buffer, int len, uint8_t reg_code) {
     }
 
 #ifdef DEBUG
-    printf("_restart() is OK\n");
+    printf("_sendrestart() is OK\n");
     printf("STAT->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->STAT)) );
 #endif
 
@@ -380,11 +378,11 @@ static int _read(char *buffer, int len, uint8_t reg_code) {
         printf("*");
 #ifdef DEBUG
     // Receiving data
-    printf("===============\n");
+    printf("\n===============\n");
     printf("Receiving data:\n");
     printf("===============\n");
 #endif
-    time = 0xffff;
+    time = TIMEOUT;
     tmp_val = read_reg(SPTR_CAST(EXT_I2C->CTL));
     tmp_val |= CTL_A_ACK;
     tmp_val |= CTL_INT_FLAG;
@@ -398,8 +396,8 @@ static int _read(char *buffer, int len, uint8_t reg_code) {
     *buffer = (char)tmp_val;
 
 #ifdef DEBUG
-    printf (" Data(MSB) = 0x%0X\n", /*tmp_val*/byte1);
-    printf("Measurement time in proc tick = %d\n", 0xffff-time);
+    printf ("\n Data(MSB) = 0x%0X\n", /*tmp_val*/byte1);
+    printf("Measurement time in proc tick = %d\n", TIMEOUT-time);
     printf("++STAT->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->STAT)) );
     printf("++CTL->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->CTL)) );
 #endif
@@ -416,8 +414,8 @@ static int _read(char *buffer, int len, uint8_t reg_code) {
     buffer[1] = (char)tmp_val;
 
 #ifdef DEBUG
-    printf (" Data(LSB) = 0x%0X\n", /*tmp_val*/byte2);
-    printf("Measurement time in proc tick = %d\n", 0xffff-time);
+    printf ("\n Data(LSB) = 0x%0X\n", /*tmp_val*/byte2);
+    printf("Measurement time in proc tick = %d\n", TIMEOUT-time);
     printf("++STAT->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->STAT)) );
     printf("++CTL->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->CTL)) );
 #endif
@@ -433,8 +431,8 @@ static int _read(char *buffer, int len, uint8_t reg_code) {
     tmp_val = read_reg(SPTR_CAST(EXT_I2C->DATA));
     buffer[2] = (char)tmp_val;
 #ifdef DEBUG
-    printf (" CHECKSUM  = 0x%0X\n", tmp_val);
-    printf("Measurement time in proc tick = %d\n", 0xffff-time);
+    printf ("\n CHECKSUM  = 0x%0X\n", tmp_val);
+    printf("Measurement time in proc tick = %d\n", TIMEOUT-time);
     printf("++STAT->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->STAT)) );
     printf("++CTL->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->CTL)) );
 #endif

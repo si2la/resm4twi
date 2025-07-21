@@ -2,10 +2,12 @@
 
 /* This is a Resource Manager TWI (I2C) for QNX Neutrino (KPDA)
  *                  Orange Pi One Board
+ * used only HTU21-D device temperature and pressure measurement
  *
  *                  start app:  ./resm4twi -a64 -d0 -v
  *                  -a64 - address I2C
  *                  -d0  - i2c0
+ *                  -s   - i2c speed (100000 & 400000)
  *                  -v   - verbose
  *
  *                  Change the current register:
@@ -15,10 +17,10 @@
  *                  read current register:
  *                  # cat /dev/twi0
  *
- *                  read attr
- *                  # stty < /dev/twi0
+ *                  read OS-device attr
+ *                  # stty -a < /dev/twi0
  *
- *                  set baudrate attr
+ *                  set baudrate attr example (really not work)
  *                  # stty baud=100000 < /dev/twi0
  *
  */
@@ -613,14 +615,6 @@ int io_devctl(resmgr_context_t *ctp, io_devctl_t *msg, RESMGR_OCB_T *ocb) {
         cfsetispeed (ttt, global_integer);
         ttt->c_cflag = (ttt->c_cflag & ~CSIZE) | CS8;     // 8-bit chars
 
-        // и это обязательно!!! чтобы принимающая сторона понимала
-        // сколько ждать данных
-        msg->o.nbytes = nbytes;
-
-//        printf("End of io_devctl nbytes = %d\n", nbytes);
-//        printf("termios->c_ispeed = %d\n", cfgetispeed(ttt) );
-//        printf("termios->c_ospeed = %d\n", cfgetospeed(ttt) );
-
         break;
 
     case DCMD_CHR_TTYINFO:
@@ -632,12 +626,12 @@ int io_devctl(resmgr_context_t *ctp, io_devctl_t *msg, RESMGR_OCB_T *ocb) {
         //     v````````
         info = _DEVCTL_DATA(msg->o);
 
-        msg->o.nbytes = nbytes;
-
+        // TODO - may be use it??
         //info->opencount = 2;
+
         // name must started from "ser"
         // if you want see right the Type field
-        // see https://forums.openqnx.com/t/topic/31846
+        // https://forums.openqnx.com/t/topic/31846
         strcpy(info->ttyname, "serial two wires (i2c) device");
         //printf("End of io_devctl nbytes = %d\n", nbytes);
 
@@ -662,7 +656,9 @@ int io_devctl(resmgr_context_t *ctp, io_devctl_t *msg, RESMGR_OCB_T *ocb) {
     //msg->o.ret_val = status;
 
     /* Indicate the number of bytes and return the message */
-    //msg->o.nbytes = nbytes;
+    // и это обязательно!!! чтобы принимающая сторона понимала
+    // сколько ждать данных
+    msg->o.nbytes = nbytes;
 
     return(_RESMGR_PTR(ctp, &msg->o, sizeof(msg->o) + nbytes));
 
