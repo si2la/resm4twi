@@ -17,6 +17,9 @@
  *                  read current register:
  *                  # cat /dev/twi0
  *
+ *                  reset HTU21D device
+ *                  # echo RESET > /dev/twi0
+ *
  *                  read OS-device attr
  *                  # stty -a < /dev/twi0
  *
@@ -307,7 +310,6 @@ io_read (resmgr_context_t *ctp, io_read_t *msg, RESMGR_OCB_T *ocb)
 
         masterf.ctl(hdl, atoh(reg_num), twi_msgbuf, 3, &twi_nbytes, twi_info);
 
-
         unsigned int sensor_bytes = (twi_msgbuf[0] << 8 | twi_msgbuf[1]) & 0xFFFC;
         double sensor_float = sensor_bytes / 65536.0;
         double measure = 0;
@@ -470,43 +472,20 @@ io_write (resmgr_context_t *ctp, io_write_t *msg, RESMGR_OCB_T *ocb)
         free(buf);
     }
 
+    if ( strncmp(buf, "RESET", 5) == 0 )
+    {
+        uint8_t * twi_msgbuf;
+        twi_msgbuf = malloc(sizeof(uint8_t));
+        uint * twi_info;
+        uint twi_nbytes;
+
+        masterf.ctl(hdl, HTU21D_RESET, twi_msgbuf, 1, &twi_nbytes, twi_info);
+
+        // TODO: check returned function code!!!
+    }
+    else
     // change register number
     strcpy(reg_num, buf);
-
-/*
-    // work TWI here
-    uint8_t * twi_msgbuf;
-    twi_msgbuf = malloc(sizeof(uint8_t)*3);
-    uint * twi_info;
-    uint twi_nbytes;
-
-    //masterf.ctl(hdl, 0xE3, twi_msgbuf, 3, &twi_nbytes, twi_info);
-    masterf.ctl(hdl, atoh(buf), twi_msgbuf, 3, &twi_nbytes, twi_info);
-
-    unsigned int sensor_bytes = (twi_msgbuf[0] << 8 | twi_msgbuf[1]) & 0xFFFC;
-    double sensor_float = sensor_bytes / 65536.0;
-    double measure = 0;
-
-    if ( atoh(buf) == 0xE3 )
-    {
-        measure = -46.85 + (175.72 * sensor_float);
-        printf("=============\n");
-        printf(" T=%f\n", measure);
-        printf("=============\n");
-//        sprintf(buffer, "T=%fC", measure);
-//        printf("%s\n", buffer);
-    }
-    else if ( atoh(buf) == 0xE5 )
-    {
-        measure = -6.0 + (125.0 * sensor_float);
-        printf("=============\n");
-        printf(" H=%5.2f%%rh\n", measure);
-        printf("=============\n");
-//        sprintf(buffer, "H=%frh", measure);
-//        printf("%s\n", buffer);
-    }
-
-*/
 
 
 

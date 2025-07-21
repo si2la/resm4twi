@@ -18,6 +18,13 @@
 
 int optv;       // global option -v (verbose)
 
+enum HTU21D_CMD
+{
+    HTU21D_RESET = 0,
+    HTU21D_HEATER_ON = 1,
+    HTU21D_HEATER_OFF = 2
+};
+
 typedef struct _twi_dev
 {
     unsigned int    speed;

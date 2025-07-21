@@ -306,6 +306,48 @@ static int32_t _sendslaveaddr(uint32_t mode) {
     return H3_I2C_OK;
 }
 
+static int _reset_htu21d() {
+    int i, ret, ret0 = -1;
+    int32_t time = 0xff7;
+    uint32_t tmp_val;
+
+    ret = _sendstart();
+    if (ret) {
+        goto i2c_reset_err_occur;
+    }
+
+    ret = _sendslaveaddr(I2C_MODE_WRITE);
+#ifdef DEBUG
+    printf ("\n_sendslaveaddr return %d\n", ret);
+    printf("+CTL->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->CTL)) );
+
+#endif
+
+    printf("\n send 0xFE (Reset)\n");
+    write_reg(SPTR_CAST(EXT_I2C->DATA), 0xFE);
+
+    tmp_val = read_reg(SPTR_CAST(EXT_I2C->CTL));
+    tmp_val |= (0x01 << 3);                              // ^^^ INT_FLAG
+    write_reg(SPTR_CAST(EXT_I2C->CTL), tmp_val);
+
+    while ((time--) && ((read_reg(SPTR_CAST(EXT_I2C->STAT)) != 0x28)))
+        ;
+#ifdef DEBUG
+    printf("+STAT->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->STAT)) );
+    printf("+CTL->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->CTL)) );
+#endif
+
+    if (ret) {
+        goto i2c_reset_err_occur;
+    }
+
+    ret0 = 0;
+
+    i2c_reset_err_occur: _stop();
+
+    return ret0;
+}
+
 static int _read(char *buffer, int len, uint8_t reg_code) {
     int i=0, ret, ret0 = -1;
     int32_t time = TIMEOUT;
@@ -447,6 +489,11 @@ static int _read(char *buffer, int len, uint8_t reg_code) {
     i2c_read_err_occur: _stop();
 
     return ret0;
+}
+
+void reset_htu21d()
+{
+    _reset_htu21d();
 }
 
 uint8_t h3_i2c_read(char *buffer, uint32_t data_length, uint8_t reg_code) {
