@@ -178,19 +178,26 @@ twi_ctl(void *hdl, int cmd, void *msg, int msglen,
 //    printf("dev_num = %d\n", dev->twi_num);
 
     // TODO - may be add buffer to dev structure?
+    uint8_t * buffer = msg;
 
     if ( cmd == HTU21D_RESET )
     {
         printf("TWI_RM: Reset HTU21D...\n");
         reset_htu21d();
-    } else if ( cmd == HTU21D_HEATER_ON )
+    }
+    else if ( cmd == HTU21D_HEATER_ON )
     {
-
+        printf("TWI_RM: Heater ON\n");
+        h3_i2c_write(buffer, 3, 1);
+    }
+    else if ( cmd == HTU21D_HEATER_OFF )
+    {
+        printf("TWI_RM: Heater OFF\n");
+        h3_i2c_write(buffer, 3, 0);
     }
     else
     {
         // now send request (register 0xE3 or 0xE5)
-        uint8_t * buffer = msg;
 
         printf("TWI_RM: Quering 0x%0X register from device with addr 0x%0X...\n", cmd, dev->slave_addr);
         if ( h3_i2c_read(buffer, 3, cmd) )

@@ -2,7 +2,7 @@
 
 /* This is a Resource Manager TWI (I2C) for QNX Neutrino (KPDA)
  *                  Orange Pi One Board
- * used only HTU21-D device temperature and pressure measurement
+ * used only with HTU21-D device (temperature and pressure measurement)
  *
  *                  start app:  ./resm4twi -a64 -d0 -v
  *                  -a64 - address I2C
@@ -19,6 +19,12 @@
  *
  *                  reset HTU21D device
  *                  # echo RESET > /dev/twi0
+ *
+ *                  onboard heater provides a temperature increase of about 0.5-1.5°C
+ *                  heater is intended to be used for functionality diagnosis:
+ *                  relative humidity drops upon rising temperature.
+ *                  # echo HEATER_ON > /dev/twi0
+ *                  # echo HEATER_OFF > /dev/twi0
  *
  *                  read OS-device attr
  *                  # stty -a < /dev/twi0
@@ -85,6 +91,7 @@ char    buffer[15] = {"HTU21D  MESS"};
 
 char    reg_num[100] = "0xE3";
 
+// variable for messages exchange thru mess from dcmd_chr.h
 int global_integer = 3;
 
 //#define PAGE_SIZE 1024
@@ -480,6 +487,28 @@ io_write (resmgr_context_t *ctp, io_write_t *msg, RESMGR_OCB_T *ocb)
         uint twi_nbytes;
 
         masterf.ctl(hdl, HTU21D_RESET, twi_msgbuf, 1, &twi_nbytes, twi_info);
+
+        // TODO: check returned function code!!!
+    }
+    else if ( strncmp(buf, "HEATER_ON", 9) == 0 )
+    {
+        uint8_t * twi_msgbuf;
+        twi_msgbuf = malloc(sizeof(uint8_t));
+        uint * twi_info;
+        uint twi_nbytes;
+
+        masterf.ctl(hdl, HTU21D_HEATER_ON, twi_msgbuf, 1, &twi_nbytes, twi_info);
+
+        // TODO: check returned function code!!!
+    }
+    else if ( strncmp(buf, "HEATER_OFF", 10) == 0 )
+    {
+        uint8_t * twi_msgbuf;
+        twi_msgbuf = malloc(sizeof(uint8_t));
+        uint * twi_info;
+        uint twi_nbytes;
+
+        masterf.ctl(hdl, HTU21D_HEATER_OFF, twi_msgbuf, 1, &twi_nbytes, twi_info);
 
         // TODO: check returned function code!!!
     }

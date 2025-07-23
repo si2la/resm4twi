@@ -343,9 +343,14 @@ static int _reset_htu21d() {
 
     ret0 = 0;
 
-    i2c_reset_err_occur: _stop();
+i2c_reset_err_occur: _stop();
 
     return ret0;
+}
+
+void reset_htu21d()
+{
+    _reset_htu21d();
 }
 
 static int _read(char *buffer, int len, uint8_t reg_code) {
@@ -491,11 +496,6 @@ static int _read(char *buffer, int len, uint8_t reg_code) {
     return ret0;
 }
 
-void reset_htu21d()
-{
-    _reset_htu21d();
-}
-
 uint8_t h3_i2c_read(char *buffer, uint32_t data_length, uint8_t reg_code) {
 
     const auto ret = _read(buffer, _CAST(int)(data_length), reg_code);
@@ -503,6 +503,199 @@ uint8_t h3_i2c_read(char *buffer, uint32_t data_length, uint8_t reg_code) {
 #ifdef DEBUG
     if (ret) {
         printf("%s ret=%d\n", __FUNCTION__, ret);
+    }
+#endif
+    return _CAST(uint8_t)(-ret);
+}
+
+static int _write( char *buffer, const int len, uint8_t heater) {
+
+    int i=0, ret, ret0 = -1;
+    int32_t time = TIMEOUT;
+    uint32_t tmp_val;
+
+    uint8_t byte1, byte2;
+
+    ret = _sendstart();
+    if (ret) {
+        goto i2c_write_err_occur;
+    }
+
+    ret = _sendslaveaddr(I2C_MODE_WRITE);
+#ifdef DEBUG
+    printf ("\n_sendslaveaddr return %d\n", ret);
+    printf("+CTL->0x%0X\n\n", read_reg(SPTR_CAST(EXT_I2C->CTL)) );
+#endif
+
+    if (ret) {
+        goto i2c_write_err_occur;
+    }
+
+    // send cmd - Read User Register (0xE7)
+    write_reg(SPTR_CAST(EXT_I2C->DATA), 0xE7);
+
+    tmp_val = read_reg(SPTR_CAST(EXT_I2C->CTL));
+    tmp_val |= (0x01 << 3);                              // ^^^ INT_FLAG
+    write_reg(SPTR_CAST(EXT_I2C->CTL), tmp_val);
+
+    while ((time--) && ((read_reg(SPTR_CAST(EXT_I2C->STAT)) != 0x28)))
+        /*printf(" wait STAT 0x28 time = 0x%0X\n", time)*/;
+
+    if (time <= 0)
+    {
+        goto i2c_write_err_occur;
+    }
+    else
+    {
+#ifdef DEBUG
+    printf ("Send 0x%0X (Reg Addr) is OK\n\n", 0xE7);
+    printf("+STAT->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->STAT)) );
+    printf("+CTL->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->CTL)) );
+#endif
+    }
+
+    ret = _sendrestart();
+    if (ret) {
+        goto i2c_write_err_occur;
+    }
+
+#ifdef DEBUG
+    printf("_sendrestart() is OK\n");
+    printf("STAT->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->STAT)) );
+#endif
+
+    ret = _sendslaveaddr(I2C_MODE_READ);
+
+    if (ret) {
+        goto i2c_write_err_occur;
+    }
+
+#ifdef DEBUG
+    printf("++STAT->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->STAT)) );
+    printf("++CTL->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->CTL)) );
+#endif
+
+
+    while ((time--) && (!(read_reg(SPTR_CAST(EXT_I2C->CTL)) & 0x08)))   // wait INT_FLAG
+        printf("*");
+#ifdef DEBUG
+    // Receiving data
+    printf("\n=================\n");
+    printf("Receive User Reg:\n");
+    printf("=================\n");
+#endif
+    time = TIMEOUT;
+    tmp_val = read_reg(SPTR_CAST(EXT_I2C->CTL));
+    tmp_val &= ~CTL_A_ACK;
+    tmp_val |= CTL_INT_FLAG;
+    write_reg(SPTR_CAST(EXT_I2C->CTL), tmp_val);
+
+    while ((time--) && ((read_reg(SPTR_CAST(EXT_I2C->STAT)) != 0x58)))
+        ;
+
+    tmp_val = read_reg(SPTR_CAST(EXT_I2C->DATA));
+    byte1 = (uint8_t)tmp_val;
+    *buffer = (char)tmp_val;
+
+#ifdef DEBUG
+    printf ("\n User reg UR = 0x%0X\n", /*tmp_val*/byte1);
+    printf("Receive UR time in proc tick = %d\n", TIMEOUT-time);
+    printf("++STAT->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->STAT)) );
+    printf("++CTL->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->CTL)) );
+#endif
+
+    ret = _sendrestart();
+    if (ret) {
+        goto i2c_write_err_occur;
+    }
+
+#ifdef DEBUG
+    printf("_sendrestart() is OK\n");
+    printf("STAT->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->STAT)) );
+#endif
+
+    ret = _sendslaveaddr(I2C_MODE_WRITE);
+
+    if (ret) {
+        goto i2c_write_err_occur;
+    }
+
+#ifdef DEBUG
+    printf("++STAT->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->STAT)) );
+    printf("++CTL->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->CTL)) );
+#endif
+
+    // send cmd - Write User Register (0xE6)
+    write_reg(SPTR_CAST(EXT_I2C->DATA), 0xE6);
+
+    tmp_val = read_reg(SPTR_CAST(EXT_I2C->CTL));
+    tmp_val |= (0x01 << 3);                              // ^^^ INT_FLAG
+    write_reg(SPTR_CAST(EXT_I2C->CTL), tmp_val);
+
+    while ((time--) && ((read_reg(SPTR_CAST(EXT_I2C->STAT)) != 0x28)))
+        /*printf(" wait STAT 0x28 time = 0x%0X\n", time)*/;
+
+    if (time <= 0)
+    {
+        goto i2c_write_err_occur;
+    }
+    else
+    {
+#ifdef DEBUG
+    printf ("Send 0x%0X (Reg Addr) is OK\n\n", 0xE6);
+    printf("+STAT->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->STAT)) );
+    printf("+CTL->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->CTL)) );
+#endif
+    }
+
+    if (heater)
+    {
+        tmp_val = byte1 | (1U << 2);
+    }
+    else
+    {
+        tmp_val = byte1 & ~(1U << 2);
+    }
+
+    // send new data of User Register
+    write_reg(SPTR_CAST(EXT_I2C->DATA), tmp_val);
+#ifdef DEBUG
+    printf ("Sending UR = 0x%0X\n\n", tmp_val);
+#endif
+
+    tmp_val = read_reg(SPTR_CAST(EXT_I2C->CTL));
+    tmp_val |= (0x01 << 3);                              // ^^^ INT_FLAG
+    write_reg(SPTR_CAST(EXT_I2C->CTL), tmp_val);
+
+    while ((time--) && ((read_reg(SPTR_CAST(EXT_I2C->STAT)) != 0x28)))
+        /*printf(" wait STAT 0x28 time = 0x%0X\n", time)*/;
+
+    if (time <= 0)
+    {
+        goto i2c_write_err_occur;
+    }
+    else
+    {
+#ifdef DEBUG
+    printf("+STAT->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->STAT)) );
+    printf("+CTL->0x%0X\n", read_reg(SPTR_CAST(EXT_I2C->CTL)) );
+#endif
+    }
+
+
+
+    ret0 = 0;
+
+i2c_write_err_occur: _stop();
+
+    return ret0;
+}
+
+uint8_t h3_i2c_write(char *buffer, uint32_t data_length, uint8_t heater) {
+    const auto ret = _write(buffer, data_length, heater);
+#ifdef DEBUG
+    if (ret) {
+        printf("ret=%d\n", ret);
     }
 #endif
     return _CAST(uint8_t)(-ret);

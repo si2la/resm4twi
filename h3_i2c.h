@@ -123,6 +123,7 @@ void h3_i2c_set_baudrate(const uint32_t nBaudrate);
 void h3_i2c_set_slave_address(const uint8_t nAddress);
 void reset_htu21d(void);
 uint8_t h3_i2c_read(char *, uint32_t, uint8_t);
+uint8_t h3_i2c_write(char *, uint32_t, uint8_t);
 int htu21d_i2c_connected(const uint8_t nAddress, const uint32_t nBaudrate);
 
 #endif // H3_I2C_H
